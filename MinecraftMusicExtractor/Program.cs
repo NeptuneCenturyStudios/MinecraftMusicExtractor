@@ -5,7 +5,10 @@ using Newtonsoft.Json.Linq;
 // See https://aka.ms/new-console-template for more information
 // Set how many menu items there are
 const int NUM_MENU_ITEMS = 2;
+// Currently selected menu option.
 var _selectionIndex = 0;
+// Stores the asset name and hash as strings
+var _objectHash = new Dictionary<string, string>();
 
 Console.WriteLine("Minecraft Music Extractor");
 // Create a menu state object to track user's selection
@@ -138,24 +141,34 @@ async Task LoadIndexes()
     if (Directory.Exists(indexesFolder))
     {
         // Look up the .json files in the folder.
-        var indexes = Directory.EnumerateFiles(indexesFolder, "*.json");
+        var indexFiles = Directory.EnumerateFiles(indexesFolder, "*.json");
         Console.WriteLine("Reading indexes...");
-        foreach (var index in indexes)
+        foreach (var indexFile in indexFiles)
         {
+            var file = new FileInfo(indexFile);
             // Read the index and deserialize the json file.
-            var indexJson = await File.ReadAllTextAsync(index);
+            var indexJson = await File.ReadAllTextAsync(indexFile);
             // Deserialize to a JObject
             var objectIndex = (JObject?)JsonConvert.DeserializeObject(indexJson);
             if (objectIndex != null)
             {
                 // Add the indexes to a dictionary
                 var assets = objectIndex["objects"]?.Children();
-                Console.WriteLine(assets);
+                
                 if (assets != null)
                 {
+                    var percentComplete = 100 / assets.AsJEnumerable().Count();
                     foreach (var asset in assets)
                     {
-                        Console.WriteLine(asset.Value<JProperty>()?.Name);
+                        var assetName = asset.Value<JProperty>()?.Name;
+                        if (assetName != null && !_objectHash.ContainsKey(assetName))
+                        {
+                            _objectHash.Add(assetName, "");
+                            Console.Write($"Loading assets from {file.FullName}. {percentComplete * 100}%");
+                            // Set cursor back to beginning
+                            Console.CursorLeft = 0;
+                        }
+                        
                     }
                 }
 
