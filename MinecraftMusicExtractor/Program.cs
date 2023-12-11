@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 // See https://aka.ms/new-console-template for more information
 // Set how many menu items there are.
 const int NUM_MENU_ITEMS = 2;
+const int NUM_MENU_LINES = 3;
 // Currently selected menu option.
 var _selectionIndex = 0;
 // Stores the asset name and hash as strings.
@@ -113,15 +114,21 @@ while (_key.Key != ConsoleKey.Escape)
         }
         break;
     }
+    else if (_key.Key == ConsoleKey.Escape)
+    {
+        // Quit
+        WriteLine("Aborted.", ConsoleColor.Red);
+        break;
+    }
 
     // Move back to the top of the menu
-    Console.CursorTop -= NUM_MENU_ITEMS;
+    Console.CursorTop -= NUM_MENU_LINES;
 
     // Print the menu again
     PrintMainMenu(_menuState);
 }
 
-///<summary>
+/// <summary>
 /// Writes a line of text to the console in a specified color. Resets the color to Gray when done.
 /// </summary>
 void WriteLine(string text, ConsoleColor color = ConsoleColor.Gray)
@@ -131,7 +138,7 @@ void WriteLine(string text, ConsoleColor color = ConsoleColor.Gray)
     Console.ForegroundColor = ConsoleColor.Gray;
 }
 
-///<summary>
+/// <summary>
 /// Writes text to the console in a specified color. Resets the color to Gray when done.
 /// </summary>
 void Write(string text, ConsoleColor color = ConsoleColor.Gray)
@@ -141,26 +148,27 @@ void Write(string text, ConsoleColor color = ConsoleColor.Gray)
     Console.ForegroundColor = ConsoleColor.Gray;
 }
 
-///<summary>
+/// <summary>
 /// Prints the options menu on the screen
 /// </summary>
 void PrintMainMenu(MenuState menuState)
 {
     // Print each menu option and update with selection
-    Console.ForegroundColor = ConsoleColor.Blue;
-    Console.Write($"{GetSelectionCursor(0)} ");
-    Console.ForegroundColor = ConsoleColor.Gray;
-    Console.Write($"[{GetSelectionCharacter(menuState.ExtractMusic)}] Extract music");
+    Write($"{GetSelectionCursor(0)} ", ConsoleColor.Blue);
+    Write($"[{GetSelectionCharacter(menuState.ExtractMusic)}] Extract music");
     Console.WriteLine();
 
-    Console.ForegroundColor = ConsoleColor.Blue;
-    Console.Write($"{GetSelectionCursor(1)} ");
-    Console.ForegroundColor = ConsoleColor.Gray;
-    Console.Write($"[{GetSelectionCharacter(menuState.ExtractMobSounds)}] Extract mob sounds");
+    Write($"{GetSelectionCursor(1)} ", ConsoleColor.Blue);
+    Write($"[{GetSelectionCharacter(menuState.ExtractMobSounds)}] Extract mob sounds");
     Console.WriteLine();
+
+    WriteLine("Press escape to quit.");
 
 }
 
+/// <summary>
+/// Sets the selection in the menu state
+/// </summary>
 void SetSelection(MenuState menuState)
 {
     switch (_selectionIndex)
@@ -174,17 +182,26 @@ void SetSelection(MenuState menuState)
     }
 }
 
+/// <summary>
+/// Gets the character used to denote a checkmark
+/// </summary>
 static string GetSelectionCharacter(bool value)
 {
     // Return an x if true or space if false
     return value ? "x" : " ";
 }
 
+/// <summary>
+/// Gets the character used to denote a cursor
+/// </summary>
 string GetSelectionCursor(int menuIndex)
 {
     return _selectionIndex == menuIndex ? ">" : " ";
 }
 
+/// <summary>
+/// Moves the cursor up
+/// </summary>
 void MoveSelectionUp()
 {
     // Increase selection index
@@ -196,6 +213,9 @@ void MoveSelectionUp()
     }
 }
 
+/// <summary>
+/// Moves the cursor down
+/// </summary>
 void MoveSelectionDown()
 {
     // Increase selection index
@@ -207,9 +227,9 @@ void MoveSelectionDown()
     }
 }
 
-///<summary>
+/// <summary>
 /// Loads the index files into a dictionary of asset names and their respective hashes.
-///</summary>
+/// </summary>
 async Task<bool> LoadIndexesAsync()
 {
     WriteLine("\nSearching for indexes...");
@@ -302,7 +322,7 @@ async Task<bool> LoadIndexesAsync()
     }
 }
 
-///<summary>
+/// <summary>
 /// Extracts the assets into readable filenames
 /// </summary>
 async Task ExtractAssetsAsync()
@@ -335,6 +355,9 @@ async Task ExtractAssetsAsync()
     WriteLine("Done!", ConsoleColor.Green);
 }
 
+/// <summary>
+/// Copies a file from source to destination
+/// </summary>
 async Task CopyFileAsync(string sourceFile, string destinationFile)
 {
     try
