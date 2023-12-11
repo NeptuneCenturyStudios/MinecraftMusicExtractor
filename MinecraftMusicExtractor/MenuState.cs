@@ -4,6 +4,6 @@
 class MenuState
 {
     public bool ExtractMusic { get; set; }
-    public bool ExtractSounds { get; set; }
+    public bool ExtractMobSounds { get; set; }
 
 }
