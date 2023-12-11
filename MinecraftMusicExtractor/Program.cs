@@ -1,8 +1,14 @@
 ﻿using System.Runtime;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 // See https://aka.ms/new-console-template for more information
+var builder = new ConfigurationBuilder();
+builder.AddCommandLine(args);
+
+var config = builder.Build();
+
 // Set how many menu items there are.
 const int NUM_MENU_ITEMS = 2;
 const int NUM_MENU_LINES = 3;
@@ -13,34 +19,72 @@ Dictionary<string, string> _objectHash = new();
 // Create a menu state object to track user's selection.
 var _menuState = new MenuState()
 {
+    HasOptions = config["options"] != null,
     CopyMusic = true
 };
 
-// Title.
-WriteLine("Minecraft Music Extractor", ConsoleColor.Blue);
+// Set options from args if there are any
+if (config["options"] != null)
+{
+    _menuState.CopyMusic = (config["options"]?.Contains("music")).GetValueOrDefault();
+    _menuState.CopyMobSounds = (config["options"]?.Contains("mobs")).GetValueOrDefault();
+}
 
-// Prompt user for the minecraft folder.
+// Title.
+WriteLine("Minecraft Music Extractor", ConsoleColor.Magenta);
+
+// Get the minecraft folder.
 string? _minecraftDir = null;
 while (_minecraftDir == null)
 {
-    Console.Write("Enter location of .minecraft folder. (Example: home/.minecraft): ");
-    _minecraftDir = Console.ReadLine();
+    var abortIfFail = false;
+    if (string.IsNullOrWhiteSpace(config["source"]))
+    {
+        // Prompt user.
+        Console.Write("Enter location of .minecraft folder. (Example: home/.minecraft): ");
+        _minecraftDir = Console.ReadLine();
+    }
+    else
+    {
+        // Set from args.
+        _minecraftDir = config["source"];
+        abortIfFail = true;
+    }
+    
     // Check to make sure the .minecraft folder that the user specified exists.
     if (!Path.Exists(_minecraftDir))
     {
         WriteLine($"The directory {_minecraftDir} does not exist or you do not have access to it.", ConsoleColor.Red);
         // Reset and try again.
         _minecraftDir = null;
+
+        if (abortIfFail)
+        {
+            // Exit.
+            return;
+        }
     }
 }
 
-// Prompt user for the destination folder. This is where the files will be copied to.
+// Get the destination folder. This is where the files will be copied to.
 string? _destinationDir = null;
 while (_destinationDir == null)
 {
-    Console.Write("Specify location to copy sound files: ");
-    _destinationDir = Console.ReadLine();
-    // Set path
+    var abortIfFail = false;
+    if (string.IsNullOrWhiteSpace(config["dest"]))
+    {
+        // Prompt user.
+        Console.Write("Specify location to copy sound files: ");
+        _destinationDir = Console.ReadLine();
+    }
+    else
+    {
+        // Set from args.
+        _destinationDir = config["dest"];
+        abortIfFail = true;
+    }
+    
+    // Set path.
     if (_destinationDir != null)
     {
         _destinationDir = Path.Combine(_destinationDir, "MinecraftMusicExtractor");
@@ -58,62 +102,100 @@ while (_destinationDir == null)
                 // Reset and try again.
                 _destinationDir = null;
 
+                if (abortIfFail)
+                {
+                    // Exit.
+                    return;
+                }
             }
 
         }
     }
 }
 
-// Present the menu.
-WriteLine("\nSelect options. Use Up/Down and Space to select. When ready, press Enter.", ConsoleColor.Blue);
+var bypassUserInput = false;
+// If options arg is set, skip menu
+if (config["options"] != null)
+{
+    bypassUserInput = true;
+}
+else
+{
+    // Present the menu.
+    WriteLine("\nSelect options. Use Up/Down and Space to select.", ConsoleColor.Blue);
+
+}
+
+// Show menu and options
 PrintMainMenu(_menuState);
 
-// Start main loop.
+// Hide cursor.
+Console.CursorVisible = false;
+
+// Store user input from console
 ConsoleKeyInfo _key = default;
+// Start main loop.
 while (_key.Key != ConsoleKey.Escape)
 {
-    _key = Console.ReadKey(true);
+    if (!bypassUserInput)
+    {
+        _key = Console.ReadKey(true);
+    }
 
     // If key is down arrow, increase selection
     if (_key.Key == ConsoleKey.DownArrow)
     {
         MoveSelectionDown();
+        
     }
     else if (_key.Key == ConsoleKey.UpArrow)
     {
         MoveSelectionUp();
+        
     }
     else if (_key.Key == ConsoleKey.Spacebar)
     {
         SetSelection(_menuState);
-
+        
     }
-    else if (_key.Key == ConsoleKey.Enter)
+    else if (_key.Key == ConsoleKey.Enter || bypassUserInput)
     {
-        // Once we have the minecraft directory and the options, look into the assets folder and find the indexes. This keeps a
-        // directory of resource names and hashes. We need to look up the resource name and locate the file by its hash.
-        // Load hashes into the _objectHash dictionary.
-        var success = await LoadIndexesAsync();
-        // Once the hash indexhas been created, extract the files from the assets folder and copy it to the new destination.
-        if (success)
+        // Validate.
+        if (!_menuState.CopyMusic
+            && !_menuState.CopyMobSounds)
         {
-            Console.WriteLine();
-            Write("Proceed with copy? (Y/N): ", ConsoleColor.Yellow);
-            var responseKey = Console.ReadKey();
-            if (responseKey.Key == ConsoleKey.Y)
-            {
-                await CopyAssetsAsync();
-            }
-            else
-            {
-                WriteLine("\nAborted.", ConsoleColor.Red);
-            }
+            WriteLine("Please specify at least one copy option.", ConsoleColor.Red);
+            Console.CursorTop -= 1;
         }
         else
         {
-            WriteLine("Failed.", ConsoleColor.Red);
+            Console.WriteLine(" ".PadRight(Console.WindowWidth));
+            // Once we have the minecraft directory and the options, look into the assets folder and find the indexes. This keeps a
+            // directory of resource names and hashes. We need to look up the resource name and locate the file by its hash.
+            // Load hashes into the _objectHash dictionary.
+            var success = await LoadIndexesAsync();
+            // Once the hash indexhas been created, extract the files from the assets folder and copy it to the new destination.
+            if (success)
+            {
+                Console.CursorVisible = true;
+                Console.WriteLine();
+                Write("Proceed with copy? (Y/N): ", ConsoleColor.Yellow);
+                var responseKey = Console.ReadKey();
+                if (responseKey.Key == ConsoleKey.Y)
+                {
+                    await CopyAssetsAsync();
+                }
+                else
+                {
+                    WriteLine("\nAborted.", ConsoleColor.Red);
+                }
+            }
+            else
+            {
+                WriteLine("Failed.", ConsoleColor.Red);
+            }
+            break;
         }
-        break;
     }
     else if (_key.Key == ConsoleKey.Escape)
     {
@@ -163,7 +245,8 @@ void PrintMainMenu(MenuState menuState)
     Write($"[{GetSelectionCharacter(menuState.CopyMobSounds)}] Copy mob sounds");
     Console.WriteLine();
 
-    WriteLine("Press escape to quit.");
+    Write("When ready, press Enter. ", ConsoleColor.Blue);
+    WriteLine("Or press escape to quit.");
 
 }
 
@@ -233,7 +316,7 @@ void MoveSelectionDown()
 /// </summary>
 async Task<bool> LoadIndexesAsync()
 {
-    WriteLine("\nSearching for indexes...");
+    WriteLine("Searching for indexes...");
 
     var assetsFolder = Path.Combine(_minecraftDir, "assets");
     var indexesFolder = Path.Combine(assetsFolder, "indexes");
