@@ -250,14 +250,16 @@ async Task<bool> LoadIndexesAsync()
             var objectIndex = (JObject?)JsonConvert.DeserializeObject(indexJson);
             if (objectIndex != null)
             {
-                // Add the indexes to a dictionary.
-                var assets = objectIndex["objects"]?.Children();
-                if (assets != null)
+                // Get all the objects under the root "objects". These are the Minecraft assets. Each one maps to a hash
+                // which is the actual filename of the asset in the objects folder.
+                var objects = objectIndex["objects"]?.Children();
+                if (objects != null)
                 {
                     decimal percentComplete = 0;
                     int index = 0;
-                    int assetCount = assets.AsJEnumerable().Count();
-                    foreach (var asset in assets.OfType<JProperty>())
+                    int assetCount = objects.AsJEnumerable().Count();
+                    var assets = objects.OfType<JProperty>();
+                    foreach (var asset in assets)
                     {
                         // Increase index for each asset we process
                         index++;
@@ -265,9 +267,9 @@ async Task<bool> LoadIndexesAsync()
                         var assetName = asset.Name;
                         var value = asset.Value;
                         // Get the hash property of the asset.
-                        var hash = value?["hash"]?.Value<JToken>()?.ToString();
+                        var hash = value?["hash"]?.ToString();
                         // We must have an asset name and a hash.
-                        if (assetName != null && hash != null && !_objectHash.ContainsKey(assetName))
+                        if (assetName != null && hash != null)
                         {
                             var addAsset = false;
                             // Use the menu options to decide which files are going to get extracted.
@@ -281,7 +283,7 @@ async Task<bool> LoadIndexesAsync()
                             if (addAsset)
                             {
                                 // Add the asset name and the hash to our dictionary.
-                                _objectHash.Add(assetName, hash);
+                                _objectHash.TryAdd(assetName, hash);
                             }
 
                         }
