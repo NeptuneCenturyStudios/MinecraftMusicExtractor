@@ -236,7 +236,7 @@ void Write(string text, ConsoleColor color = ConsoleColor.Gray)
 /// </summary>
 void PrintMainMenu(MenuState menuState)
 {
-    // Print each menu option and update with selection
+    // Print each menu option and update with selection.
     Write($"{GetSelectionCursor(0)} ", ConsoleColor.Blue);
     Write($"[{GetSelectionCharacter(menuState.CopyMusic)}] Copy music");
     Console.WriteLine();
@@ -244,9 +244,13 @@ void PrintMainMenu(MenuState menuState)
     Write($"{GetSelectionCursor(1)} ", ConsoleColor.Blue);
     Write($"[{GetSelectionCharacter(menuState.CopyMobSounds)}] Copy mob sounds");
     Console.WriteLine();
-
-    Write("When ready, press Enter. ", ConsoleColor.Blue);
-    WriteLine("Or press escape to quit.");
+    
+    // If options are set via command line, don't show this.
+    if (!_menuState.HasOptions)
+    {
+        Write("When ready, press Enter. ", ConsoleColor.Blue);
+        WriteLine("Or press escape to quit.");
+    }
 
 }
 
