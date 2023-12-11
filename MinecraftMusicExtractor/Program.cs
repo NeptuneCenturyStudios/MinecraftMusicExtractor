@@ -13,12 +13,13 @@ Dictionary<string, string> _objectHash = new();
 // Create a menu state object to track user's selection.
 var _menuState = new MenuState()
 {
-    ExtractMusic = true
+    CopyMusic = true
 };
 
-Console.WriteLine("Minecraft Music Extractor");
+// Title.
+WriteLine("Minecraft Music Extractor", ConsoleColor.Blue);
 
-// Prompt user for the minecraft folder
+// Prompt user for the minecraft folder.
 string? _minecraftDir = null;
 while (_minecraftDir == null)
 {
@@ -64,7 +65,7 @@ while (_destinationDir == null)
 }
 
 // Present the menu.
-WriteLine("\nSelect extraction options. Use Up/Down and Space to select. When ready, press Enter.", ConsoleColor.Blue);
+WriteLine("\nSelect options. Use Up/Down and Space to select. When ready, press Enter.", ConsoleColor.Blue);
 PrintMainMenu(_menuState);
 
 // Start main loop.
@@ -97,11 +98,11 @@ while (_key.Key != ConsoleKey.Escape)
         if (success)
         {
             Console.WriteLine();
-            Write("Proceed? (Y/N): ", ConsoleColor.Yellow);
+            Write("Proceed with copy? (Y/N): ", ConsoleColor.Yellow);
             var responseKey = Console.ReadKey();
             if (responseKey.Key == ConsoleKey.Y)
             {
-                await ExtractAssetsAsync();
+                await CopyAssetsAsync();
             }
             else
             {
@@ -155,11 +156,11 @@ void PrintMainMenu(MenuState menuState)
 {
     // Print each menu option and update with selection
     Write($"{GetSelectionCursor(0)} ", ConsoleColor.Blue);
-    Write($"[{GetSelectionCharacter(menuState.ExtractMusic)}] Extract music");
+    Write($"[{GetSelectionCharacter(menuState.CopyMusic)}] Copy music");
     Console.WriteLine();
 
     Write($"{GetSelectionCursor(1)} ", ConsoleColor.Blue);
-    Write($"[{GetSelectionCharacter(menuState.ExtractMobSounds)}] Extract mob sounds");
+    Write($"[{GetSelectionCharacter(menuState.CopyMobSounds)}] Copy mob sounds");
     Console.WriteLine();
 
     WriteLine("Press escape to quit.");
@@ -174,10 +175,10 @@ void SetSelection(MenuState menuState)
     switch (_selectionIndex)
     {
         case 0:
-            menuState.ExtractMusic = !menuState.ExtractMusic;
+            menuState.CopyMusic = !menuState.CopyMusic;
             break;
         case 1:
-            menuState.ExtractMobSounds = !menuState.ExtractMobSounds;
+            menuState.CopyMobSounds = !menuState.CopyMobSounds;
             break;
     }
 }
@@ -271,16 +272,9 @@ async Task<bool> LoadIndexesAsync()
                         // We must have an asset name and a hash.
                         if (assetName != null && hash != null)
                         {
-                            var addAsset = false;
-                            // Use the menu options to decide which files are going to get extracted.
-                            if ((_menuState.ExtractMusic && assetName.Contains("sounds/music"))
-                                || (_menuState.ExtractMobSounds && assetName.Contains("sounds/mob")))
-                            {
-                                addAsset = true;
-                            }
-
-                            // Only add the asset if it is what the user wants to extract
-                            if (addAsset)
+                            // Use the menu options to decide which files are going to get copied.
+                            if ((_menuState.CopyMusic && assetName.Contains("sounds/music"))
+                                || (_menuState.CopyMobSounds && assetName.Contains("sounds/mob")))
                             {
                                 // Add the asset name and the hash to our dictionary.
                                 _objectHash.TryAdd(assetName, hash);
@@ -308,7 +302,7 @@ async Task<bool> LoadIndexesAsync()
         // Check that we have any loaded assets.
         if (_objectHash.Count > 0)
         {
-            WriteLine($"Indexed {_objectHash.Count} assets to be extracted.", ConsoleColor.Green);
+            WriteLine($"Indexed {_objectHash.Count} assets to be copied.", ConsoleColor.Green);
             return true;
         }
         else
@@ -325,14 +319,14 @@ async Task<bool> LoadIndexesAsync()
 }
 
 /// <summary>
-/// Extracts the assets into readable filenames
+/// Copies the assets into readable filenames
 /// </summary>
-async Task ExtractAssetsAsync()
+async Task CopyAssetsAsync()
 {
     var assetsFolder = Path.Combine(_minecraftDir, "assets");
     var objectsFolder = Path.Combine(assetsFolder, "objects");
 
-    WriteLine($"\nExtracting files to {_destinationDir}.", ConsoleColor.Blue);
+    WriteLine($"\nCopying files to {_destinationDir}.", ConsoleColor.Blue);
     // Look up the first two characters of each hash. This represents the folder the asset is located in.
     foreach (var keyValuePair in _objectHash)
     {
