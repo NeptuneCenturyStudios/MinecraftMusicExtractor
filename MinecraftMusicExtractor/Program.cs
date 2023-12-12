@@ -9,6 +9,11 @@ builder.AddCommandLine(args);
 
 var config = builder.Build();
 
+// This flag is set to true when copy options are passed from command line args. This way we
+// can skip user input.
+var optionsSet = config["options"] != null;
+var bypassPrompt = config["noprompt"] != null;
+
 // Set how many menu items there are.
 const int NUM_MENU_ITEMS = 2;
 const int NUM_MENU_LINES = 3;
@@ -19,14 +24,15 @@ Dictionary<string, string> _objectHash = new();
 // Create a menu state object to track user's selection.
 var _menuState = new MenuState()
 {
-    HasOptions = config["options"] != null,
     CopyMusic = true
 };
 
 // Set options from args if there are any
-if (config["options"] != null)
+if (optionsSet)
 {
+    // Do the options contain music?
     _menuState.CopyMusic = (config["options"]?.Contains("music")).GetValueOrDefault();
+    // Do the options contain mobs?
     _menuState.CopyMobSounds = (config["options"]?.Contains("mobs")).GetValueOrDefault();
 }
 
@@ -113,21 +119,15 @@ while (_destinationDir == null)
     }
 }
 
-var bypassUserInput = false;
-// If options arg is set, skip menu
-if (config["options"] != null)
-{
-    bypassUserInput = true;
-}
-else
+// If options are not set via command line, then prompt for options.
+if (!optionsSet)
 {
     // Present the menu.
     WriteLine("\nSelect options. Use Up/Down and Space to select.", ConsoleColor.Blue);
-
 }
 
 // Show menu and options
-PrintMainMenu(_menuState);
+PrintMainMenu();
 
 // Hide cursor.
 Console.CursorVisible = false;
@@ -137,7 +137,9 @@ ConsoleKeyInfo _key = default;
 // Start main loop.
 while (_key.Key != ConsoleKey.Escape)
 {
-    if (!bypassUserInput)
+
+    // Prompt for input if no options are set.
+    if (!optionsSet)
     {
         _key = Console.ReadKey(true);
     }
@@ -155,10 +157,10 @@ while (_key.Key != ConsoleKey.Escape)
     }
     else if (_key.Key == ConsoleKey.Spacebar)
     {
-        SetSelection(_menuState);
+        SetSelection();
         
     }
-    else if (_key.Key == ConsoleKey.Enter || bypassUserInput)
+    else if (_key.Key == ConsoleKey.Enter || optionsSet)
     {
         // Validate.
         if (!_menuState.CopyMusic
@@ -179,9 +181,17 @@ while (_key.Key != ConsoleKey.Escape)
             {
                 Console.CursorVisible = true;
                 Console.WriteLine();
-                Write("Proceed with copy? (Y/N): ", ConsoleColor.Yellow);
-                var responseKey = Console.ReadKey();
-                if (responseKey.Key == ConsoleKey.Y)
+
+                // If noprompt arg is passed, we skip prompting the user for confirmation.
+                ConsoleKeyInfo responseKey = default;
+                if (!bypassPrompt)
+                {
+                    Write("Proceed with copy? (Y/N): ", ConsoleColor.Yellow);
+                    responseKey = Console.ReadKey();
+                }
+
+                // User responded with Y or passed noprompt arg.
+                if (responseKey.Key == ConsoleKey.Y || bypassPrompt)
                 {
                     await CopyAssetsAsync();
                 }
@@ -199,16 +209,16 @@ while (_key.Key != ConsoleKey.Escape)
     }
     else if (_key.Key == ConsoleKey.Escape)
     {
-        // Quit
+        // Quit.
         WriteLine("Aborted.", ConsoleColor.Red);
         break;
     }
 
-    // Move back to the top of the menu
+    // Move back to the top of the menu.
     Console.CursorTop -= NUM_MENU_LINES;
 
-    // Print the menu again
-    PrintMainMenu(_menuState);
+    // Print the menu again.
+    PrintMainMenu();
 }
 
 /// <summary>
@@ -234,19 +244,19 @@ void Write(string text, ConsoleColor color = ConsoleColor.Gray)
 /// <summary>
 /// Prints the options menu on the screen
 /// </summary>
-void PrintMainMenu(MenuState menuState)
+void PrintMainMenu()
 {
     // Print each menu option and update with selection.
     Write($"{GetSelectionCursor(0)} ", ConsoleColor.Blue);
-    Write($"[{GetSelectionCharacter(menuState.CopyMusic)}] Copy music");
+    Write($"[{GetSelectionCharacter(_menuState.CopyMusic)}] Copy music");
     Console.WriteLine();
 
     Write($"{GetSelectionCursor(1)} ", ConsoleColor.Blue);
-    Write($"[{GetSelectionCharacter(menuState.CopyMobSounds)}] Copy mob sounds");
+    Write($"[{GetSelectionCharacter(_menuState.CopyMobSounds)}] Copy mob sounds");
     Console.WriteLine();
     
-    // If options are set via command line, don't show this.
-    if (!_menuState.HasOptions)
+    // Only show messages below when options are not set from command line.
+    if (!optionsSet)
     {
         Write("When ready, press Enter. ", ConsoleColor.Blue);
         WriteLine("Or press escape to quit.");
@@ -257,15 +267,15 @@ void PrintMainMenu(MenuState menuState)
 /// <summary>
 /// Sets the selection in the menu state
 /// </summary>
-void SetSelection(MenuState menuState)
+void SetSelection()
 {
     switch (_selectionIndex)
     {
         case 0:
-            menuState.CopyMusic = !menuState.CopyMusic;
+            _menuState.CopyMusic = !_menuState.CopyMusic;
             break;
         case 1:
-            menuState.CopyMobSounds = !menuState.CopyMobSounds;
+            _menuState.CopyMobSounds = !_menuState.CopyMobSounds;
             break;
     }
 }
@@ -284,7 +294,7 @@ static string GetSelectionCharacter(bool value)
 /// </summary>
 string GetSelectionCursor(int menuIndex)
 {
-    return _selectionIndex == menuIndex ? ">" : " ";
+    return _selectionIndex == menuIndex && !optionsSet ? ">" : " ";
 }
 
 /// <summary>
@@ -389,7 +399,7 @@ async Task<bool> LoadIndexesAsync()
         // Check that we have any loaded assets.
         if (_objectHash.Count > 0)
         {
-            WriteLine($"Indexed {_objectHash.Count} assets to be copied.", ConsoleColor.Green);
+            WriteLine($"Indexed {_objectHash.Count} asset(s) to be copied.", ConsoleColor.Green);
             return true;
         }
         else
